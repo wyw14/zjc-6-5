@@ -1,14 +1,14 @@
-﻿const API_BASE_URL = 'http://localhost:6034/api';
+const API_BASE_URL = 'http://localhost:6034/api';
 
 const CARD_EMOJIS = {
-  1: '馃惗',
-  2: '馃惐',
-  3: '馃惣',
-  4: '馃',
-  5: '馃',
-  6: '馃惛',
-  7: '馃惖',
-  8: '馃惃'
+  1: '🍎',
+  2: '🍊',
+  3: '🍋',
+  4: '🍇',
+  5: '🍉',
+  6: '🍓',
+  7: '🍒',
+  8: '🍑'
 };
 
 const gameBoard = document.getElementById('gameBoard');
@@ -36,11 +36,16 @@ let startTime = null;
 let elapsedTime = 0;
 let gameStarted = false;
 let isProcessing = false;
+let sessionId = null;
+let flipCount = 0;
 
 async function initGame() {
   resetGameState();
-  const shuffledCards = await fetchShuffledCards();
-  renderCards(shuffledCards);
+  const gameData = await fetchShuffledCards();
+  if (gameData) {
+    sessionId = gameData.sessionId;
+    renderCards(gameData.cards);
+  }
 }
 
 function resetGameState() {
@@ -51,6 +56,8 @@ function resetGameState() {
   elapsedTime = 0;
   gameStarted = false;
   isProcessing = false;
+  sessionId = null;
+  flipCount = 0;
   
   if (timer) {
     clearInterval(timer);
@@ -65,11 +72,19 @@ function resetGameState() {
 
 async function fetchShuffledCards() {
   try {
-    const response = await fetch(`${API_BASE_URL}/shuffle`);
+    const response = await fetch(`${API_BASE_URL}/start-game`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
     const data = await response.json();
-    return data.cards;
+    return {
+      sessionId: data.sessionId,
+      cards: data.cards
+    };
   } catch (error) {
-    console.error('鑾峰彇娲楃墝鏁版嵁澶辫触:', error);
+    console.error('获取洗牌数据失败:', error);
     const fallbackCards = [];
     for (let i = 1; i <= 8; i++) {
       fallbackCards.push(i, i);
@@ -78,7 +93,26 @@ async function fetchShuffledCards() {
       const j = Math.floor(Math.random() * (i + 1));
       [fallbackCards[i], fallbackCards[j]] = [fallbackCards[j], fallbackCards[i]];
     }
-    return fallbackCards;
+    return {
+      sessionId: null,
+      cards: fallbackCards
+    };
+  }
+}
+
+async function reportFlip() {
+  if (!sessionId) return;
+  
+  try {
+    await fetch(`${API_BASE_URL}/flip`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ sessionId })
+    });
+  } catch (error) {
+    console.error('上报翻牌失败:', error);
   }
 }
 
@@ -94,7 +128,7 @@ function renderCards(cardIds) {
     
     const cardFront = document.createElement('div');
     cardFront.className = 'card-face card-front';
-    cardFront.textContent = CARD_EMOJIS[cardId] || '鉂?;
+    cardFront.textContent = CARD_EMOJIS[cardId] || '?';
     
     card.appendChild(cardBack);
     card.appendChild(cardFront);
@@ -119,6 +153,8 @@ function handleCardClick(card) {
 
   flipCard(card);
   flippedCards.push(card);
+  flipCount++;
+  reportFlip();
 
   if (flippedCards.length === 2) {
     moves++;
@@ -193,7 +229,7 @@ function endGame() {
 }
 
 async function submitScore() {
-  const playerName = playerNameInput.value.trim() || '鍖垮悕鐜╁';
+  const playerName = playerNameInput.value.trim() || '匿名玩家';
   const timeInSeconds = Math.floor(elapsedTime / 1000);
 
   try {
@@ -204,20 +240,27 @@ async function submitScore() {
       },
       body: JSON.stringify({
         time: timeInSeconds,
-        playerName: playerName
+        playerName: playerName,
+        sessionId: sessionId,
+        flips: flipCount
       })
     });
 
     const data = await response.json();
     
     if (data.success) {
-      alert(`鎭枩锛佷綘鎺掑悕绗?${data.rank} 鍚嶏紒`);
+      if (data.isSuspicious) {
+        const issues = data.issues.join('；');
+        alert(`成绩已记录，但因检测到异常，暂不列入正式排行榜。\n原因：${issues}`);
+      } else {
+        alert(`恭喜！你排名第 ${data.rank} 名！`);
+      }
       winModal.classList.add('hidden');
       showLeaderboard();
     }
   } catch (error) {
-    console.error('鎻愪氦鎴愮哗澶辫触:', error);
-    alert('鎻愪氦鎴愮哗澶辫触锛岃绋嶅悗閲嶈瘯');
+    console.error('提交成绩失败:', error);
+    alert('提交成绩失败，请稍后重试');
   }
 }
 
@@ -227,8 +270,8 @@ async function showLeaderboard() {
     const data = await response.json();
     renderLeaderboard(data.leaderboard);
   } catch (error) {
-    console.error('鑾峰彇鎺掕姒滃け璐?', error);
-    leaderboardList.innerHTML = '<li>鍔犺浇鎺掕姒滃け璐?/li>';
+    console.error('获取排行榜失败:', error);
+    leaderboardList.innerHTML = '<li>加载排行榜失败</li>';
   }
   
   leaderboardModal.classList.remove('hidden');
@@ -236,7 +279,7 @@ async function showLeaderboard() {
 
 function renderLeaderboard(leaderboard) {
   if (!leaderboard || leaderboard.length === 0) {
-    leaderboardList.innerHTML = '<li class="empty-message">鏆傛棤璁板綍锛屽揩鏉ユ寫鎴樺惂锛?/li>';
+    leaderboardList.innerHTML = '<li class="empty-message">暂无记录，快来挑战吧！</li>';
     return;
   }
 
@@ -250,13 +293,22 @@ function renderLeaderboard(leaderboard) {
     const seconds = entry.time % 60;
     const timeStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     
+    let badgeHtml = '';
+    if (entry.isSuspicious) {
+      badgeHtml = '<span class="suspicious-badge" title="成绩异常，暂列排行榜">⚠️</span>';
+    }
+    
     li.innerHTML = `
       <span class="rank-name">
         <span class="rank">#${index + 1}</span>
-        <span class="name">${entry.playerName}</span>
+        <span class="name">${entry.playerName}${badgeHtml}</span>
       </span>
       <span class="time">${timeStr}</span>
     `;
+    
+    if (entry.isSuspicious) {
+      li.classList.add('suspicious');
+    }
     
     leaderboardList.appendChild(li);
   });

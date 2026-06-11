@@ -267,6 +267,23 @@ h1 {
   color: #667eea;
 }
 
+.leaderboard-list .rank-item.suspicious {
+  opacity: 0.6;
+  background: repeating-linear-gradient(
+    45deg,
+    #fff3cd,
+    #fff3cd 10px,
+    #ffeeba 10px,
+    #ffeeba 20px
+  ) !important;
+  color: #856404 !important;
+}
+
+.suspicious-badge {
+  margin-left: 5px;
+  font-size: 0.9em;
+}
+
 @media (max-width: 480px) {
   .container {
     padding: 20px;
