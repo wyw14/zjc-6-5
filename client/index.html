@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>翻牌配对小游戏</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>🃏 翻牌配对小游戏</h1>
+    
+    <div class="game-info">
+      <div class="info-item">
+        <span class="label">⏱️ 用时</span>
+        <span id="timer" class="value">00:00</span>
+      </div>
+      <div class="info-item">
+        <span class="label">👆 步数</span>
+        <span id="moves" class="value">0</span>
+      </div>
+      <div class="info-item">
+        <span class="label">✅ 已配对</span>
+        <span id="matched" class="value">0/8</span>
+      </div>
+    </div>
+
+    <div class="game-board" id="gameBoard"></div>
+
+    <div class="controls">
+      <button id="restartBtn" class="btn btn-primary">🔄 重新开始</button>
+      <button id="leaderboardBtn" class="btn btn-secondary">🏆 排行榜</button>
+    </div>
+
+    <div id="winModal" class="modal hidden">
+      <div class="modal-content">
+        <h2>🎉 恭喜通关！</h2>
+        <p>你的成绩：<span id="finalTime">00:00</span></p>
+        <p>总步数：<span id="finalMoves">0</span></p>
+        <div class="input-group">
+          <label for="playerName">输入你的名字：</label>
+          <input type="text" id="playerName" placeholder="匿名玩家" maxlength="10">
+        </div>
+        <button id="submitScoreBtn" class="btn btn-primary">提交成绩</button>
+        <button id="playAgainBtn" class="btn btn-secondary">再玩一次</button>
+      </div>
+    </div>
+
+    <div id="leaderboardModal" class="modal hidden">
+      <div class="modal-content">
+        <h2>🏆 排行榜</h2>
+        <ol id="leaderboardList" class="leaderboard-list"></ol>
+        <button id="closeLeaderboardBtn" class="btn btn-secondary">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
