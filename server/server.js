@@ -1,4 +1,4 @@
-﻿const express = require('express');
+﻿﻿﻿﻿const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
@@ -42,7 +42,7 @@ app.post('/api/start-game', (req, res) => {
   const shuffled = shuffle(cardIds);
 
   gameSessions.set(sessionId, {
-    startTime: Date.now(),
+    startTime: null,
     cards: shuffled,
     flipCount: 0,
     completed: false
@@ -74,6 +74,11 @@ app.post('/api/flip', (req, res) => {
   }
 
   const session = gameSessions.get(sessionId);
+  
+  if (session.flipCount === 0) {
+    session.startTime = Date.now();
+  }
+  
   session.flipCount++;
 
   res.json({ success: true, flipCount: session.flipCount });
@@ -94,10 +99,20 @@ function validateScore(sessionId, clientTime, clientFlips) {
     return { valid: false, issues };
   }
 
-  const serverEndTime = Date.now();
-  const serverDuration = Math.floor((serverEndTime - session.startTime) / 1000);
+  if (typeof clientFlips !== 'number' || isNaN(clientFlips)) {
+    issues.push('翻牌次数缺失或非数字');
+  }
 
-  if (Math.abs(serverDuration - clientTime) > TIME_TOLERANCE) {
+  if (!session.startTime || session.flipCount === 0) {
+    issues.push('未检测到有效翻牌记录');
+  }
+
+  const serverEndTime = Date.now();
+  const serverDuration = session.startTime 
+    ? Math.floor((serverEndTime - session.startTime) / 1000) 
+    : 0;
+
+  if (session.startTime && Math.abs(serverDuration - clientTime) > TIME_TOLERANCE) {
     issues.push(`客户端用时(${clientTime}s)与服务端记录(${serverDuration}s)差异过大`);
   }
 
@@ -109,16 +124,18 @@ function validateScore(sessionId, clientTime, clientFlips) {
     issues.push(`游戏时间过长(${clientTime}s > ${MAX_GAME_TIME}s)`);
   }
 
-  if (clientFlips < MIN_FLIPS) {
-    issues.push(`翻牌次数过少(${clientFlips} < ${MIN_FLIPS})`);
-  }
+  if (typeof clientFlips === 'number' && !isNaN(clientFlips)) {
+    if (clientFlips < MIN_FLIPS) {
+      issues.push(`翻牌次数过少(${clientFlips} < ${MIN_FLIPS})`);
+    }
 
-  if (clientFlips > MAX_FLIPS) {
-    issues.push(`翻牌次数过多(${clientFlips} > ${MAX_FLIPS})`);
-  }
+    if (clientFlips > MAX_FLIPS) {
+      issues.push(`翻牌次数过多(${clientFlips} > ${MAX_FLIPS})`);
+    }
 
-  if (Math.abs(session.flipCount - clientFlips) > 2) {
-    issues.push(`客户端翻牌数(${clientFlips})与服务端记录(${session.flipCount})不一致`);
+    if (Math.abs(session.flipCount - clientFlips) > 2) {
+      issues.push(`客户端翻牌数(${clientFlips})与服务端记录(${session.flipCount})不一致`);
+    }
   }
 
   session.completed = true;
